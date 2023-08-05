@@ -1,7 +1,6 @@
 package generator;
 
 import org.springframework.http.*;
-import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
@@ -13,49 +12,92 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
+import java.util.Scanner;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 
 
 public class Main {
-    public static void main(String[] args) throws IOException {
-        RestTemplate restTemplate = new RestTemplate();
-        String initializrUrl = "https://start.spring.io/starter.zip";
 
+    private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
+    private static Scanner getInfo = new Scanner(System.in);
+
+    public static void main(String[] args) throws IOException {
+
+        RestTemplate restTemplate = new RestTemplate();
+        String initializrUrl = Constants.SPRING_IO_URL;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-        map.add("type", "maven-project");
-        map.add("language", "java");
-        map.add("bootVersion", "3.1.0");
-        map.add("baseDir", "myproject");
-        map.add("groupId", "com.example");
-        map.add("artifactId", "demo");
-        map.add("name", "demo");
-        map.add("description", "Demo project");
-        map.add("packageName", "com.example.demo");
-        map.add("packaging", "jar");
-        map.add("javaVersion", "11");
-        map.add("dependencies", "web,data-jpa");
+//        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+//        map.add("type", "maven-project");
+//        map.add("language", "java");
+//        map.add("bootVersion", "3.1.0");
+//        map.add("baseDir", "myproject");
+//        map.add("groupId", "com.example");
+//        map.add("artifactId", "demo");
+//        map.add("name", "demo");
+//        map.add("description", "Demo project");
+//        map.add("packageName", "com.example.demo");
+//        map.add("packaging", "jar");
+//        map.add("javaVersion", "11");
+//        map.add("dependencies", "web");
 
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+        ProjectInformation projectInformation = new ProjectInformation();
+        MultiValueMap<String, String> projectInformationMap = projectInformation.projectGenerator();
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(projectInformationMap, headers);
 
         ResponseEntity<byte[]> response = restTemplate.postForEntity(initializrUrl, request, byte[].class);
 
-        String filePath = "/Users/fsk/Desktop/coding/myproject.zip";
+        LOGGER.info("Which location save do you want");
+        String filePath = getInfo.nextLine();
+        String baseDir = projectInformationMap.get(Constants.BASE_DIR).toString();
+        String subs = baseDir.substring(1, baseDir.length() - 1);
+        String destinationPath = filePath;
+        String filePathWithZip = filePath+"/"+subs+".zip";
+        //String filePath = "/Users/fsk/Desktop/coding/myproject.zip";
 
-        if (response.getStatusCode() == HttpStatus.OK) {
-            // Yanıtı bir dosyaya yazma
-            Files.write(Path.of(filePath), response.getBody());
-            System.out.println("Proje başarıyla oluşturuldu!");
-        } else {
-            System.out.println("Proje oluşturma başarısız: " + response.getStatusCode());
+        saveProjectWithZip(response, filePathWithZip);
+
+        unzip(filePathWithZip, destinationPath);
+
+        //String rootPath = "/Users/fsk/Desktop/coding/myproject/src/main/java/com/example/demo";
+        String packageStructure = projectInformationMap.get(Constants.PACKAGE_NAME).toString().replace(".", "/");
+        String substringPackageStructure = packageStructure.substring(1, packageStructure.length() - 1);
+        String rootPath = filePath+"/"+subs+"/src/main/java/"+substringPackageStructure;
+        LOGGER.info("Package Name: ");
+        String packageName = getInfo.nextLine();
+
+        // Paket adını dizin yapısına dönüştür
+        String packagePath = packageName.replace('.', '/');
+
+        // Tam yol oluştur
+        Path path = Paths.get(rootPath, packagePath);
+
+        try {
+            // Dizinleri oluştur
+            Path directories = Files.createDirectories(path);
+            if (Objects.nonNull(directories)) {
+
+            }
+            System.out.println("Paket oluşturuldu: " + path);
+        } catch (FileAlreadyExistsException e) {
+            System.out.println("Paket zaten var: " + path);
+        } catch (IOException e) {
+            System.out.println("Paket oluşturulamadı: " + e.getMessage());
         }
 
+        //Path pathh = Paths.get("/Users/fsk/Desktop/coding/myproject/src/main/resources/application.properties");
+
+    }
+
+    private static void unzip(String filePath, String destinationPath) throws IOException {
         byte[] buffer = new byte[1024];
-        String destination = "/Users/fsk/Desktop/coding/";
+        String destination = destinationPath;
 
         File file = new File(destination);
         ZipInputStream zis = new ZipInputStream(new FileInputStream(filePath));
@@ -88,28 +130,16 @@ public class Main {
 
         zis.closeEntry();
         zis.close();
+    }
 
-        String rootPath = "/Users/fsk/Desktop/coding/myproject/src/main/java/com/example/demo";
-        String packageName = "entities";
-
-        // Paket adını dizin yapısına dönüştür
-        String packagePath = packageName.replace('.', '/');
-
-        // Tam yol oluştur
-        Path path = Paths.get(rootPath, packagePath);
-
-        try {
-            // Dizinleri oluştur
-            Files.createDirectories(path);
-            System.out.println("Paket oluşturuldu: " + path);
-        } catch (FileAlreadyExistsException e) {
-            System.out.println("Paket zaten var: " + path);
-        } catch (IOException e) {
-            System.out.println("Paket oluşturulamadı: " + e.getMessage());
+    private static void saveProjectWithZip(ResponseEntity<byte[]> response, String filePath) throws IOException {
+        if (response.getStatusCode() == HttpStatus.OK) {
+            // Yanıtı bir dosyaya yazma
+            Files.write(Path.of(filePath), response.getBody());
+            LOGGER.info("Proje başarıyla oluşturuldu!");
+        } else {
+            LOGGER.info("Proje oluşturma başarısız: " + response.getStatusCode());
         }
-
-        //Path pathh = Paths.get("/Users/fsk/Desktop/coding/myproject/src/main/resources/application.properties");
-
     }
 
     public static File newFile(File destinationDir, ZipEntry zipEntry) throws IOException {
