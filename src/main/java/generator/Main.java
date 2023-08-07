@@ -71,25 +71,30 @@ public class Main {
         String rootPath = filePath+"/"+subs+"/src/main/java/"+substringPackageStructure;
         LOGGER.info("Package Name: ");
         String packageName = getInfo.nextLine();
+        String[] packageNameArr = packageName.split(" ");
 
-        // Paket adını dizin yapısına dönüştür
-        String packagePath = packageName.replace('.', '/');
+        for (String item : packageNameArr) {
+            // Paket adını dizin yapısına dönüştür
+            String packagePath = item.replace('.', '/');
 
-        // Tam yol oluştur
-        Path path = Paths.get(rootPath, packagePath);
+            // Tam yol oluştur
+            Path path = Paths.get(rootPath, packagePath);
 
-        try {
-            // Dizinleri oluştur
-            Path directories = Files.createDirectories(path);
-            if (Objects.nonNull(directories)) {
+            try {
+                // Dizinleri oluştur
+                Path directories = Files.createDirectories(path);
+                if (Objects.nonNull(directories)) {
 
+                }
+                System.out.println("Paket oluşturuldu: " + path);
+            } catch (FileAlreadyExistsException e) {
+                System.out.println("Paket zaten var: " + path);
+            } catch (IOException e) {
+                System.out.println("Paket oluşturulamadı: " + e.getMessage());
             }
-            System.out.println("Paket oluşturuldu: " + path);
-        } catch (FileAlreadyExistsException e) {
-            System.out.println("Paket zaten var: " + path);
-        } catch (IOException e) {
-            System.out.println("Paket oluşturulamadı: " + e.getMessage());
         }
+
+
 
         //Path pathh = Paths.get("/Users/fsk/Desktop/coding/myproject/src/main/resources/application.properties");
 
